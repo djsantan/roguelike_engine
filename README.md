@@ -1,8 +1,7 @@
 # roguelike_engine
 
-- TODO: Write the README.md.
-- TODO: Actually do the initial commit.
 - TODO: Refactor the code to be less spaghetti.
+- TODO: Add status pane, scalable UI, scrolling of map
 
 ## What is this?
 This is a side project I was working on to implement a simple roguelike game similar to rogue, nethack, and dungeon crawl stone soup. It is mostly written in C. Presently there is hardly anything in this right now, so please don't expect much :).
