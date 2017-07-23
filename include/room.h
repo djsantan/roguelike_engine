@@ -2,8 +2,6 @@
 
 #include "types.h"
 
-#define FLOOR_WIDTH 80 
-#define FLOOR_HEIGHT 24
 #define FLOOR_MIN_ROOMS 28
 #define FLOOR_MAX_ROOMS 30 
 #define ROOM_MIN_WIDTH 3
@@ -14,6 +12,9 @@
 #define PC_VIS 6 
 #define NPC_MIN 4
 #define NPC_MAX 10
+
+#define STAT_WIDTH 24
+#define STAT_HEIGHT 12
 
 #define TER_DARKNESS ' '
 #define TER_FLOOR '.'

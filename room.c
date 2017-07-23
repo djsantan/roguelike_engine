@@ -7,16 +7,19 @@
 #include "room.h"
 #include "ent.h"
 
-#define PRINTDBG(a) mvprintw(FLOOR_HEIGHT+1, 0, "%s", a); refresh() 
-#define PRINTFDBG(fmt, ...) snprintf(__DBGBUF, 1000, fmt, __VA_ARGS__); PRINTDBG(dbgbuf); 
+#define PRINTDBG(a) mvprintw(0, 0, "%s", a); refresh() 
+#define PRINTFDBG(fmt, ...) snprintf(__DBGBUF, 1000, fmt, __VA_ARGS__); PRINTDBG(__DBGBUF); 
 
 char __DBGBUF[1000];
 
 unsigned int stu_x, stu_y, std_x, std_y;
 unsigned int seed;
-unsigned int DEBUG_ILLUMINATE = 1;
+unsigned int DEBUG_ILLUMINATE = 0;
 unsigned int DEBUG_SHOW_VISMAP = 0;
 
+WINDOW *win_game;
+WINDOW *win_stat;
+WINDOW *win_chat;
 
 bool coords_inbounds(int x, int y){
 	if(x < 0 || x > FLOOR_WIDTH) return false;
@@ -203,27 +206,117 @@ void gen_floor(floor_t *floor){
 
 }
 
+
+void draw_game_win(WINDOW *win){
+
+	int max_x, max_y;
+	getmaxyx(stdscr, max_y, max_x);
+	
+	win_chat = newwin(abs(max_y - STAT_HEIGHT) + 1, STAT_WIDTH, STAT_HEIGHT - 1, FLOOR_WIDTH);
+
+	wresize(win, max_y, max_x - STAT_WIDTH);
+
+	wrefresh(win);
+
+}
+
+void draw_stat_win(WINDOW *win){
+	
+	int max_x, max_y;
+	getmaxyx(stdscr, max_y, max_x);
+	
+	mvwin(win, 0, max_x - STAT_WIDTH); 
+	
+	wborder(win, '|', '|', '-', '-', '+', '+', '+', '+');
+	mvwprintw(win, 2, 2, "STATS GO HERE");
+	wrefresh(win);
+
+}
+
+void draw_chat_win(WINDOW *win){
+	
+	int max_x, max_y;
+	getmaxyx(stdscr, max_y, max_x);
+	
+	wresize(win, abs(max_y - STAT_HEIGHT) + 1, STAT_WIDTH);
+	mvwin(win, STAT_HEIGHT - 1, max_x - STAT_WIDTH); 
+
+	wborder(win, '|', '|', '-', '-', '+', '+', '+', '+');
+	mvwprintw(win, 2, 2, "MESSAGES GO HERE");
+	wrefresh(win);
+
+}
+
 void draw(floor_t *floor){
 
 	static int framecnt = 0;
 
 	int x, y;
 	
-	for(y = 0; y < FLOOR_HEIGHT; y++){
-		for(x = 0; x < FLOOR_WIDTH; x++){
+	static int max_x = -1, max_y = -1;
+	int pc_x, pc_y, game_x, game_y;
+	int x_off, y_off;
+	getmaxyx(stdscr, y, x);
+
+	/* Clear screen for fresh redraw if the window is resized */
+	if(x != max_x || y != max_y){
+		max_x = x;
+		max_y = y;
+		clear();
+	}
+
+	/* TODO: Clean up and move this stuff into a draw_game_win function */
+
+	/* Get dimensions of the game windows */
+	getmaxyx(win_game, game_y, game_x); 
+	pc_x = floor->entities[PC].x;	
+	pc_y = floor->entities[PC].y;
+
+	x_off = pc_x - game_x / 2;
+	y_off = pc_y - game_y / 2;
+
+	if(x_off < 0){
+		x_off = 0;
+	} else if(FLOOR_WIDTH > game_x && x_off > FLOOR_WIDTH - game_x) {
+		x_off = FLOOR_WIDTH - game_x;
+	}
+	
+	if(y_off < 0){
+		y_off = 0;
+	} else if(FLOOR_HEIGHT > game_y && y_off > FLOOR_HEIGHT - game_y) {
+		y_off = FLOOR_HEIGHT - game_y;
+	}
+
+	for(y = 0; y < game_y && y + y_off < FLOOR_HEIGHT; y++){
+
+
+		for(x = 0; x < game_x && x + x_off < FLOOR_WIDTH; x++){
+
+			/* Different Viewing Modes */
 			if(DEBUG_SHOW_VISMAP){
-				mvprintw(y, x, "%d", floor->vis_map[x][y]);
+				mvwprintw(win_game, y, x, "%d", floor->vis_map[x + x_off][y + y_off]);
 			}
-			else if(floor->vis_map[x][y] == 1 || DEBUG_ILLUMINATE){
-				mvprintw(y, x, "%c", floor->tile[x][y].symbol);
+			else if(floor->vis_map[x + x_off][y + y_off] == 1 || DEBUG_ILLUMINATE){
+				mvwprintw(win_game, y, x, "%c", floor->tile[x + x_off][y + y_off].symbol);
 			} else {
-				mvprintw(y, x, "%c", TER_DARKNESS); 
+				mvwprintw(win_game, y, x, "%c", TER_DARKNESS); 
 			}
-			if(floor->ent_map[x][y] != 0 && floor->vis_map[x][y] == 1)
-				mvprintw(y, x, "%c", floor->ent_map[x][y]);	
+			/* Draw Entities */
+			if(floor->ent_map[x + x_off][y + y_off] != 0 && floor->vis_map[x + x_off][y + y_off] == 1)
+				mvwprintw(win_game, y, x, "%c", floor->ent_map[x + x_off][y + y_off]);	
 		}
 	}
-	refresh();
+
+	PRINTFDBG("WID %d HT %d XOFF %d YOFF %d", game_x, game_y, x_off, y_off);
+
+	// Resize the windows if the windows changed
+	//draw_check_resize();
+
+	draw_stat_win(win_stat);
+	draw_chat_win(win_chat);
+	wrefresh(win_game);
+	//wrefresh(win_chat);
+	//refresh();
 
 }
 
@@ -331,6 +424,28 @@ bool check_occupied(floor_t *floor, int x, int y){
 	}
 }
 
+void win_init(){
+
+	int max_x, max_y;
+	getmaxyx(stdscr, max_y, max_x);
+
+	if(win_game != NULL) delwin(win_game);
+	if(win_stat != NULL) delwin(win_stat);
+	if(win_chat != NULL) delwin(win_chat);
+
+	win_game = newwin(max_y - STAT_HEIGHT, max_x - STAT_WIDTH, 0, 0);
+	win_stat = newwin(STAT_HEIGHT, STAT_WIDTH, 0, FLOOR_WIDTH);
+	win_chat = newwin(abs(max_y - STAT_HEIGHT) + 1, STAT_WIDTH, STAT_HEIGHT - 1, FLOOR_WIDTH);
+	
+	wborder(win_stat, '|', '|', '-', '-', '+', '+', '+', '+');
+	wborder(win_chat, '|', '|', '-', '-', '+', '+', '+', '+');
+
+	wrefresh(win_game);
+	wrefresh(win_stat);
+	wrefresh(win_chat);
+
+}
+
 int main(void){
 
 	int c, x, y;
@@ -345,11 +460,15 @@ int main(void){
 		printf("Your terminal doesn't support colors! Aborting...\n");
 		exit(1);
 	}
-	start_color();
+	//start_color();
 
 	noecho();
 	cbreak();
-	curs_set(0);	
+	curs_set(0);
+
+	/* Setup Windows */
+	win_init();
+	
 	gen_floor(&dungeon);
 	ent_init_list(&dungeon, stu_x, stu_y, ENT_MAX);
 	update_vismap(&dungeon, dungeon.entities[PC].x, dungeon.entities[PC].y, PC_VIS);
