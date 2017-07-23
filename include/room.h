@@ -32,6 +32,7 @@ extern const tile_t ter_stair_down;
 bool check_occupied(floor_t *, int, int);
 void draw(floor_t *floor);
 void fill_vismap(floor_t *floor, int stx, int sty, int r);
+void win_init();
 
 
 #define __ROOM_H__

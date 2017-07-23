@@ -262,6 +262,7 @@ void draw(floor_t *floor){
 	if(x != max_x || y != max_y){
 		max_x = x;
 		max_y = y;
+		win_init();
 		clear();
 	}
 
@@ -433,7 +434,7 @@ void win_init(){
 	if(win_stat != NULL) delwin(win_stat);
 	if(win_chat != NULL) delwin(win_chat);
 
-	win_game = newwin(max_y - STAT_HEIGHT, max_x - STAT_WIDTH, 0, 0);
+	win_game = newwin(max_y, max_x - STAT_WIDTH, 0, 0);
 	win_stat = newwin(STAT_HEIGHT, STAT_WIDTH, 0, FLOOR_WIDTH);
 	win_chat = newwin(abs(max_y - STAT_HEIGHT) + 1, STAT_WIDTH, STAT_HEIGHT - 1, FLOOR_WIDTH);
 	
