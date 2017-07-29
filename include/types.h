@@ -4,8 +4,8 @@
 	#define bool _Bool
 #endif
 
-#define FLOOR_WIDTH 80 
-#define FLOOR_HEIGHT 24
+#define FLOOR_WIDTH 100 
+#define FLOOR_HEIGHT 50
 #define ENT_MAX 255
 
 typedef enum{

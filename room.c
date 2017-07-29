@@ -16,6 +16,11 @@ unsigned int stu_x, stu_y, std_x, std_y;
 unsigned int seed;
 unsigned int DEBUG_ILLUMINATE = 0;
 unsigned int DEBUG_SHOW_VISMAP = 0;
+unsigned long long turn_count = 0;
+
+/* This need to not be global */
+char msg_buf[MSG_BUF_MAX][MSG_MAX_LEN];
+int msg_buf_index = 0;
 
 WINDOW *win_game;
 WINDOW *win_stat;
@@ -206,6 +211,18 @@ void gen_floor(floor_t *floor){
 
 }
 
+void put_msg(char *msg){
+
+	strncpy(msg_buf[msg_buf_index], msg, MSG_MAX_LEN); 
+	msg_buf_index++;
+
+	/* Treat msg_buf like a ring buffer and wrap it back around to 0 */
+	if(msg_buf_index >= MSG_BUF_MAX){
+		msg_buf_index = 0;
+	}
+	
+	
+}
 
 void draw_game_win(WINDOW *win){
 
@@ -223,30 +240,94 @@ void draw_game_win(WINDOW *win){
 void draw_stat_win(WINDOW *win){
 	
 	int max_x, max_y;
+	char buf[STAT_WIDTH - 1];
 	getmaxyx(stdscr, max_y, max_x);
 	
 	mvwin(win, 0, max_x - STAT_WIDTH); 
 	
 	wborder(win, '|', '|', '-', '-', '+', '+', '+', '+');
 	mvwprintw(win, 2, 2, "STATS GO HERE");
+
+	/* Floor and Turn */
+	snprintf(buf, STAT_WIDTH - 2, "F %llu T %llu", 0, turn_count);
+	mvwprintw(win, STAT_HEIGHT - 2, 1, buf);
 	wrefresh(win);
 
+}
+
+/* Inserts newlines into buffer to make it wrap. Returns number of lines */
+int format_msg(char *buf, int line_width, int len){
+	
+	int i = 0;
+
+	char tmp[len];
+	memset(tmp, 0, sizeof(tmp));
+	
+	while(i <= len - line_width && i < strlen(buf)){
+		
+		strncat(tmp, buf + i, line_width);
+		i += line_width;
+		
+		if( i <= len - line_width ) {	
+			strncat(tmp, "||", 2); // Hacky way of not messing up the border, do something better then this.
+		}
+	}
+	
+	strncpy(buf, tmp, len);
+
+	return i / line_width;
 }
 
 void draw_chat_win(WINDOW *win){
-	
+
+	/* Clean this up and get rid of unused stuff */	
+	int line_width, lines, i, chat_height;
 	int max_x, max_y;
+	char buf[MSG_MAX_LEN], divider[STAT_WIDTH - 1];
 	getmaxyx(stdscr, max_y, max_x);
+
+	chat_height = abs(max_y - STAT_HEIGHT) + 1;
+	line_width = STAT_WIDTH - 2;
 	
-	wresize(win, abs(max_y - STAT_HEIGHT) + 1, STAT_WIDTH);
+	wresize(win, chat_height, STAT_WIDTH);
+	wclear(win);
 	mvwin(win, STAT_HEIGHT - 1, max_x - STAT_WIDTH); 
 
+	/* Generate a message divider */
+	for(i = 0; i < line_width; i++){
+		divider[i] = '-';
+	}
+	divider[line_width] = '\0';
+
+	/* Print the latest messages */
+
+	i = msg_buf_index;
+
+	/* This seems pretty atrocious. Need to makeit less garbage */
+
+	lines = chat_height;
+	while(lines > 0){
+		
+		i--;	
+	
+		/* Wraparound */
+		if(i < 0) {
+			i = MSG_BUF_MAX - 1;
+		}
+		strncpy(buf, msg_buf[i], sizeof(buf));
+		lines -= format_msg(buf, line_width, MSG_MAX_LEN)  + 1;
+
+		mvwprintw(win, lines, 1, buf);
+
+		if(msg_buf[i][0] != '\0'){
+			mvwprintw(win, lines - 1, 1, divider);
+		}
+	}
+
 	wborder(win, '|', '|', '-', '-', '+', '+', '+', '+');
-	mvwprintw(win, 2, 2, "MESSAGES GO HERE");
 	wrefresh(win);
 
 }
-
 void draw(floor_t *floor){
 
 	static int framecnt = 0;
@@ -303,12 +384,11 @@ void draw(floor_t *floor){
 				mvwprintw(win_game, y, x, "%c", TER_DARKNESS); 
 			}
 			/* Draw Entities */
-			if(floor->ent_map[x + x_off][y + y_off] != 0 && floor->vis_map[x + x_off][y + y_off] == 1)
+			if(floor->ent_map[x + x_off][y + y_off] != 0 && floor->vis_map[x + x_off][y + y_off] == 1){
 				mvwprintw(win_game, y, x, "%c", floor->ent_map[x + x_off][y + y_off]);	
+			}
 		}
 	}
-
-	PRINTFDBG("WID %d HT %d XOFF %d YOFF %d", game_x, game_y, x_off, y_off);
 
 	// Resize the windows if the windows changed
 	//draw_check_resize();
@@ -361,10 +441,13 @@ bool check_los(floor_t* floor, int st_x, int st_y, int end_x, int end_y){
 
 void update_vismap(floor_t *floor, int x, int y, int r){
 	int i;
+	
+	/* Paint the new direclty visible tiles */
 	for(i = 0; i < r; i++){
 		fill_vismap(floor, x, y, i);
 	}
-	//fill_vismap(x, y, r);
+	
+	/* Paint over the old directly visible tiles */
 	for(y = 0; y < FLOOR_HEIGHT; y++){
 		for(x = 0; x < FLOOR_WIDTH; x++){
 			if(floor->vis_map[x][y] == 2)
@@ -378,6 +461,7 @@ void fill_vismap(floor_t *floor, int stx, int sty, int r){
 	int x = r;
 	int y = 0;
 	int err = 0;
+
 	while (x >= y)
 	{
 		if(coords_inbounds(stx+x, sty+y) && check_los(floor, floor->entities[PC].x, floor->entities[PC].y, stx+x, sty+y)){
@@ -468,6 +552,7 @@ int main(void){
 	curs_set(0);
 
 	/* Setup Windows */
+	memset(msg_buf, NULL, MSG_BUF_MAX * sizeof(char *));
 	win_init();
 	
 	gen_floor(&dungeon);
@@ -538,8 +623,11 @@ int main(void){
 		ent_gen_map_layer(&dungeon, ENT_MAX, FLOOR_WIDTH, FLOOR_HEIGHT);
 		ent_update(&dungeon, ENT_MAX);
 		update_vismap(&dungeon, dungeon.entities[PC].x, dungeon.entities[PC].y, PC_VIS);
-		draw(&dungeon);	
-		
+		draw(&dungeon);
+		turn_count++;
+		char buf[100];
+		snprintf(buf, 100, "Turn #%d MSG #%d ABCDEFGHIJKLMNOPQRSTUV", turn_count, msg_buf_index);
+		put_msg(buf);	
 	}
 
 	endwin();

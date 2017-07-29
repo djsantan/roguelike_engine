@@ -13,6 +13,9 @@
 #define NPC_MIN 4
 #define NPC_MAX 10
 
+#define MSG_MAX_LEN 64
+#define MSG_BUF_MAX 100
+
 #define STAT_WIDTH 24
 #define STAT_HEIGHT 12
 
