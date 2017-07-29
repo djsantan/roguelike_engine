@@ -10,17 +10,17 @@ const tile_t ter_bogus = {
 };
 const tile_t ter_floor = {
 	'.',
-	0x00,
-	0xFF,
+	0x07,
+	0x07,
 	0,
 	FLOOR_TILE,
 	""
 };
 
 const tile_t ter_wall = {
-	'#',
-	0xFF,
-	0x00,
+	'.',
+	0x08,
+	0x08,
 	0,
 	WALL_TILE,
 	""

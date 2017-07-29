@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <ncurses.h>
 #include <time.h>
 #include "types.h"
@@ -211,6 +212,16 @@ void gen_floor(floor_t *floor){
 
 }
 
+unsigned short get_color_pair(short a, short b){
+
+	if ((a << 4) + b < 256){
+		return (a << 4) + b;
+	} else {
+		return 0; // Give the default color pair for invalid inputs
+	}
+
+}
+
 void put_msg(char *msg){
 
 	strncpy(msg_buf[msg_buf_index], msg, MSG_MAX_LEN); 
@@ -337,6 +348,7 @@ void draw(floor_t *floor){
 	static int max_x = -1, max_y = -1;
 	int pc_x, pc_y, game_x, game_y;
 	int x_off, y_off;
+	short pair, fg, bg;
 	getmaxyx(stdscr, y, x);
 
 	/* Clear screen for fresh redraw if the window is resized */
@@ -369,6 +381,8 @@ void draw(floor_t *floor){
 		y_off = FLOOR_HEIGHT - game_y;
 	}
 
+	wclear(win_game);
+	
 	for(y = 0; y < game_y && y + y_off < FLOOR_HEIGHT; y++){
 
 
@@ -379,20 +393,29 @@ void draw(floor_t *floor){
 				mvwprintw(win_game, y, x, "%d", floor->vis_map[x + x_off][y + y_off]);
 			}
 			else if(floor->vis_map[x + x_off][y + y_off] == 1 || DEBUG_ILLUMINATE){
+				fg = floor->tile[x + x_off][y + y_off].fg_color;
+				bg = floor->tile[x + x_off][y + y_off].bg_color;
+				pair = get_color_pair(fg, bg);
+				init_pair(pair, fg, bg);
+				wattron(win_game, COLOR_PAIR(pair));
 				mvwprintw(win_game, y, x, "%c", floor->tile[x + x_off][y + y_off].symbol);
+				wattroff(win_game, COLOR_PAIR(pair));
 			} else {
 				mvwprintw(win_game, y, x, "%c", TER_DARKNESS); 
 			}
-			/* Draw Entities */
+			/* Draw Entities, they should inherit their BG color from the tile.*/
 			if(floor->ent_map[x + x_off][y + y_off] != 0 && floor->vis_map[x + x_off][y + y_off] == 1){
+				fg = COLOR_BLACK;
+				bg = floor->tile[x + x_off][y + y_off].bg_color;
+				pair = get_color_pair(fg, bg);
+				init_pair(pair, fg, bg);
+				wattron(win_game, COLOR_PAIR(pair));
 				mvwprintw(win_game, y, x, "%c", floor->ent_map[x + x_off][y + y_off]);	
+				wattroff(win_game, COLOR_PAIR(pair));
 			}
 		}
 	}
-
-	// Resize the windows if the windows changed
-	//draw_check_resize();
-
+	
 	draw_stat_win(win_stat);
 	draw_chat_win(win_chat);
 	wrefresh(win_game);
@@ -545,7 +568,7 @@ int main(void){
 		printf("Your terminal doesn't support colors! Aborting...\n");
 		exit(1);
 	}
-	//start_color();
+	start_color();
 
 	noecho();
 	cbreak();
@@ -558,6 +581,8 @@ int main(void){
 	gen_floor(&dungeon);
 	ent_init_list(&dungeon, stu_x, stu_y, ENT_MAX);
 	update_vismap(&dungeon, dungeon.entities[PC].x, dungeon.entities[PC].y, PC_VIS);
+
+	
 	draw(&dungeon);
 	while(!esc){
 
@@ -627,7 +652,8 @@ int main(void){
 		turn_count++;
 		char buf[100];
 		snprintf(buf, 100, "Turn #%d MSG #%d ABCDEFGHIJKLMNOPQRSTUV", turn_count, msg_buf_index);
-		put_msg(buf);	
+		put_msg(buf);
+		usleep(1000);	
 	}
 
 	endwin();

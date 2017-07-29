@@ -1,4 +1,5 @@
 #ifndef __ROOM_H__
+#include <ncurses.h>
 
 #include "types.h"
 

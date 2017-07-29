@@ -54,11 +54,23 @@ typedef struct{
 
 typedef struct{
 
+	short floor_fg;
+	short floor_bg;
+	short wall_fg;
+	short wall_bg;
+	short liquid_fg;
+	short liquid_bg;
+
+}floor_palette_t;
+
+typedef struct{
+
 	visibility_t vis_map[FLOOR_WIDTH][FLOOR_HEIGHT];
 	char ent_map[FLOOR_WIDTH][FLOOR_HEIGHT];
 	entity_t entities[ENT_MAX];
 	tile_t tile[FLOOR_WIDTH][FLOOR_HEIGHT];
 	tile_t tile_tmp[FLOOR_WIDTH][FLOOR_HEIGHT];
+	floor_palette_t palette;
 
 }floor_t;
 
